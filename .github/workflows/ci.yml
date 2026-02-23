@@ -40,3 +40,28 @@ jobs:
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
+
+      - name: Build container image
+        run: docker build -t core-service:ci .
+
+      - name: Enforce non-root container user
+        run: |
+          image_user=$(docker image inspect core-service:ci --format '{{.Config.User}}')
+          if [ -z "$image_user" ] || [ "$image_user" = "root" ] || [ "$image_user" = "0" ]; then
+            echo "Container must set a non-root USER. Found: '${image_user}'"
+            exit 1
+          fi
+
+          runtime_uid=$(docker run --rm core-service:ci id -u)
+          if [ "$runtime_uid" = "0" ]; then
+            echo "Container runtime UID must not be 0"
+            exit 1
+          fi
+
+      - name: Enforce container healthcheck
+        run: |
+          health_test=$(docker image inspect core-service:ci --format '{{json .Config.Healthcheck.Test}}')
+          if [ -z "$health_test" ] || [ "$health_test" = "null" ]; then
+            echo "Container image must define HEALTHCHECK"
+            exit 1
+          fi
