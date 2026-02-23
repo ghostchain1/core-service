@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22.5-alpine3.19 AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY . .
 RUN go build -ldflags="-X github.com/ghostchain1/core-service/pkg/version.Version=0.1.0" -o core-service ./cmd/core-service
 
 # Final stage
-FROM alpine:3.19
+FROM alpine:3.21
 
 RUN addgroup -S app && adduser -S app -G app \
   && apk --no-cache add ca-certificates \
