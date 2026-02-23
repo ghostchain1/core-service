@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -11,14 +11,21 @@ COPY . .
 RUN go build -ldflags="-X github.com/ghostchain1/core-service/pkg/version.Version=0.1.0" -o core-service ./cmd/core-service
 
 # Final stage
-FROM alpine:latest
+FROM alpine:3.21
 
-RUN apk --no-cache add ca-certificates
+RUN addgroup -S app && adduser -S app -G app \
+  && apk --no-cache add ca-certificates \
+  && mkdir -p /home/app
 
-WORKDIR /root/
+WORKDIR /home/app
 
-COPY --from=builder /app/core-service .
+COPY --from=builder /app/core-service /usr/local/bin/core-service
+
+USER app
 
 EXPOSE 8080
 
-CMD ["./core-service"]
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -q -O - http://127.0.0.1:8080/readyz | grep -q '"status":"ready"' || exit 1
+
+CMD ["core-service"]

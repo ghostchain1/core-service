@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/ghostchain1/core-service/internal/config"
 	"github.com/ghostchain1/core-service/internal/server"
+	"github.com/ghostchain1/core-service/pkg/logging"
 	"github.com/ghostchain1/core-service/pkg/version"
 )
 
@@ -18,21 +19,28 @@ func main() {
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		slog.Default().Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
 
+	logger := logging.NewLogger(cfg.LogLevel)
+
 	// Print version info
-	log.Printf("Starting %s version %s (commit: %s, built: %s)",
-		version.ServiceName, version.Version, version.Commit, version.BuildTime)
+	logger.Info("starting service",
+		"service", version.ServiceName,
+		"version", version.Version,
+		"commit", version.Commit,
+		"built", version.BuildTime)
 
 	// Create server
-	srv := server.New(cfg)
+	srv := server.New(cfg, logger)
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Server starting on port %s", cfg.Port)
+		logger.Info("server starting", "port", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed to start: %v", err)
+			logger.Error("server failed to start", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -40,7 +48,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("Shutting down server...")
+	logger.Info("shutting down server")
 
 	// Create a deadline for shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -48,8 +56,8 @@ func main() {
 
 	// Attempt graceful shutdown
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("Server forced to shutdown: %v", err)
+		logger.Error("server forced to shutdown", "error", err)
 	} else {
-		log.Println("Server exited gracefully")
+		logger.Info("server exited gracefully")
 	}
 }

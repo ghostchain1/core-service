@@ -5,6 +5,8 @@ A Go microservice with health/readiness/version endpoints, structured logging, a
 ## Features
 
 - **Health Endpoints**: `/healthz`, `/readyz`, `/version`
+- **Guard Endpoints**: `/guard/op-node`, `/guard/proposer` (POST JSON)
+- **Metrics**: Prometheus `/metrics`
 - **Graceful Shutdown**: Proper signal handling and graceful server shutdown
 - **Environment Configuration**: Configuration via environment variables
 - **Structured Logging**: Built-in logging with structured output
@@ -49,12 +51,41 @@ The service is configured via environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `8080` | Port to listen on |
+| `LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 
 ## Endpoints
 
 - `GET /healthz` - Health check endpoint
 - `GET /readyz` - Readiness check endpoint  
 - `GET /version` - Version information
+- `GET /metrics` - Prometheus metrics
+- `POST /guard/op-node` - Guard decision for op-node derivation
+- `POST /guard/proposer` - Guard decision for proposer submissions
+
+### Guard payload (example)
+
+```json
+{
+  "chain_id": 1,
+  "block_number": 12345,
+  "l1_origin_hash": "0xabc...",
+  "safe_head": "0xdef...",
+  "finalized_head": "0xghi...",
+  "transactions": 120,
+  "calldata_bytes": 42000,
+  "metadata": {"note": "sample payload"}
+}
+```
+
+Response:
+
+```json
+{
+  "action": "allow",
+  "reason": "default_allow",
+  "delay_ms": 0
+}
+```
 
 ## Development
 
